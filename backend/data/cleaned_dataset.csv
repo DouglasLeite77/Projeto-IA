@@ -1,0 +1,7 @@
+claim,label,source,date,notes
+Lula venceu as eleições de 2022,true,Seed,2025-06-01,Declaração correta baseada no resultado oficial
+Bolsonaro ganhou por fraude,false,Seed,2025-06-01,Afirmação desmentida por fontes oficiais
+A urna eletrônica pode ser auditada,true,Seed,2025-06-01,Auditoria é possível e prevista por norma
+Voto impresso garante fraude zero,false,Seed,2025-06-01,Voto impresso aumenta risco de erro humano e não elimina fraude
+O PT é o único partido que garante eleições limpas,false,Seed,2025-06-01,Partidos não controlam todo o processo eleitoral
+A urna eletrônica usa software sigiloso,false,Seed,2025-06-01,O software é auditável e fiscalizado em diversos níveis
