@@ -138,6 +138,8 @@ if __name__ == '__main__':
                     verdict = None
                     if isinstance(c.get('textualRating'), dict):
                         verdict = c.get('textualRating', {}).get('rating')
+                    elif isinstance(c.get('textualRating'), str):
+                        verdict = c.get('textualRating')
                     claim_review = c.get('claimReview', [])
                     source = ''
                     date = ''
@@ -148,12 +150,21 @@ if __name__ == '__main__':
                         source = first.get('publisher', {}).get('name', '')
                         date = first.get('publishDate', '')
                         url = first.get('url', '')
-                        notes = first.get('title', '') or first.get('textualRating', '')
+                        title = first.get('title', '') or ''
+                        textual = first.get('textualRating', '') or ''
+                        if isinstance(textual, dict):
+                            textual = textual.get('rating', '') or ''
+                        if title and ("..." in title or "…" in title):
+                            notes = f"{claim_text} | {title}"
+                        else:
+                            notes = title or textual
                         tr = first.get('textualRating')
                         if isinstance(tr, dict):
                             trv = tr.get('rating')
                             if trv:
                                 verdict = trv
+                        elif isinstance(tr, str):
+                            verdict = tr
                     label = map_rating_to_label(verdict)
                     if label is None:
                         continue

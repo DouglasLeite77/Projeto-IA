@@ -87,6 +87,34 @@ def extract_factcheck_rating(claim_item: dict) -> str:
                 return review_textual
     return ""
 
+
+def extract_factcheck_detail(claim_item: dict) -> str:
+    if not isinstance(claim_item, dict):
+        return ""
+
+    claim_review = claim_item.get("claimReview", [])
+    title = ""
+    if claim_review and isinstance(claim_review, list):
+        first = claim_review[0]
+        if isinstance(first, dict):
+            title = first.get("title", "") or ""
+
+    claim_text = claim_item.get("text") or claim_item.get("claim") or ""
+    if title and ("..." in title or "…" in title):
+        if claim_text and claim_text.lower() not in title.lower():
+            return f"{claim_text} | {title}"
+    return title or claim_text or ""
+
+
+def expand_detail_text(detail: str, claim_text: str) -> str:
+    if not detail:
+        return claim_text or ""
+    if "..." in detail or "…" in detail:
+        claim_text = (claim_text or "").strip()
+        if claim_text and claim_text.lower() not in detail.lower():
+            return f"{claim_text} | {detail}"
+    return detail
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "model_loaded": model is not None}
@@ -99,12 +127,19 @@ async def analyze(request: ClaimRequest):
 
     existing = dataset.find_claim(claim_text)
     if existing:
+        # Não substituir a afirmação original enviada pelo usuário.
+        # Exibir a claim original em `claim` e incluir a claim encontrada no dataset em `detail`.
+        matched_claim = existing.get("claim", "")
+        detail_text = expand_detail_text(existing.get("notes", "Resultado obtido do dataset local"), matched_claim)
+        # prefixar informação sobre correspondência local
+        # Não prefixar; usar apenas o texto de detalhe já construído
+        detail_text = detail_text
         return ClaimResponse(
-            claim=existing["claim"],
+            claim=claim_text,
             source=existing.get("source", "Fonte local"),
             verdict=normalize_verdict(existing.get("label", "FALSO")),
             probability=1.0,
-            detail=existing.get("notes", "Resultado obtido do dataset local"),
+            detail=detail_text,
             url=existing.get("url", "")
         )
 
@@ -128,7 +163,7 @@ async def analyze(request: ClaimRequest):
                 if not verdict:
                     verdict = claim_review.get("title", "")
                 source = claim_review.get("publisher", {}).get("name", "Google Fact Check")
-                detail = claim_review.get("title", "")
+                detail = extract_factcheck_detail(claim_item) or claim_review.get("textualRating", "")
                 url = claim_review.get("url", "")
                 normalized_verdict = normalize_verdict(verdict)
                 factcheck_data = {
@@ -171,11 +206,24 @@ async def analyze(request: ClaimRequest):
         )
 
     if gnews_article:
-        source = f"Modelo de Machine Learning / GNews ({gnews_article.get('source', 'GNews')})"
+        if model:
+            verdict = model.predict(claim_text)
+            probability = model.predict_proba(claim_text)
+            source = f"Modelo de Machine Learning / GNews ({gnews_article.get('source', 'GNews')})"
+        else:
+            verdict = "VERDADEIRO"
+            probability = 0.0
+            source = f"GNews ({gnews_article.get('source', 'GNews')})"
         detail = f"Artigo GNews relacionado: {gnews_article.get('title', '').strip()}"
         url = gnews_article.get('url', "")
         gnews_score = gnews_article.get('gnews_score')
     else:
+        if model:
+            verdict = model.predict(claim_text)
+            probability = model.predict_proba(claim_text)
+        else:
+            verdict = "FALSO"
+            probability = 0.0
         source = "Modelo de Machine Learning"
         detail = "Resultado estimado pelo modelo de ML"
         url = ""

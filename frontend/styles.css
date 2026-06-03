@@ -80,6 +80,11 @@ section {
   transition: opacity 0.2s ease, filter 0.2s ease;
 }
 
+section p span {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .hidden {
   display: none;
 }
