@@ -22,7 +22,16 @@ if not GNEWS_API_KEY:
 API_URL = 'https://gnews.io/api/v4/search'
 DATA_PATH = DATA_DIR / 'gnews_articles.csv'
 KEYWORDS = [
-    'eleição', 'bolsonaro', 'lula', 'pt', 'campanha', 'urna', 'voto', 'fraude'
+    # Lista enxuta (≤50) focada em política brasileira — 'corrupcao' mantida
+    'corrupcao', 'lula', 'luiz inacio lula da silva', 'jair bolsonaro', 'bolsonaro',
+    'ciro gomes', 'sergio moro', 'haddad', 'marina silva', 'joao doria',
+    'pt', 'psdb', 'pl', 'psol', 'psb', 'rede',
+    'eleicao', 'eleicoes', 'voto', 'urna', 'urna eletronica', 'fraude',
+    'tse', 'stf', 'congresso', 'senado', 'camara dos deputados',
+    'presidente', 'governador', 'prefeito', 'impeachment', 'auxilio emergencial',
+    'bolsa familia', 'lava jato', 'fake news', 'desinformacao', 'pesquisa eleitoral',
+    'datafolha', 'ibope', 'pec', 'reforma da previdencia', 'educacao',
+    'saude publica', 'vacina', 'impostos', 'seguranca publica', 'investigacao'
 ]
 
 

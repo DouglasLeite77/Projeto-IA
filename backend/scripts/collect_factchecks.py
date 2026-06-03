@@ -24,44 +24,16 @@ if not API_KEY:
 DATA_PATH = BACKEND_DIR / 'data' / 'initial_dataset.csv'
 
 KEYWORDS = [
-    # Principais atores e partidos
-    'lula', 'luiz inacio lula da silva', 'jair bolsonaro', 'bolsonaro', 'ciro gomes',
-    'sergio moro', 'haddad', 'fernando haddad', 'marina silva', 'geraldo alckmin',
-    'joao doria', 'aecio neves', 'eduardo bolsonaro', 'flavio bolsonaro',
-    'pt', 'psdb', 'pl', 'psol', 'pmdb', 'pmn', 'pps', 'pcdo', 'psb', 'rede', 'psl',
-
-    # Instituições e tribunais
-    'stf', 'tse', 'tribunal superior eleitoral', 'tribunal superior federal',
-    'congresso', 'senado', 'camara dos deputados', 'camara federal', 'cpi',
-
-    # Temas centrais e termos eleitorais
-    'eleicao', 'eleicoes', 'eleitoral', 'voto', 'urna', 'urna eletronica',
-    'fraude', 'fraude eleitoral', 'contagem de votos', 'resultado eleitoral',
-    'primeiro turno', 'segundo turno', 'campanha', 'propaganda eleitoral',
-
-    # Políticas públicas e programas
-    'auxilio emergencial', 'bolsa familia', 'bolsa familia 2022', 'fundo eleitoral',
-    'reforma da previdencia', 'reforma administrativa', 'pec', 'pl', 'decreto',
-
-    # Corrupcao e operações de investigação
-    'corrupcao', 'lava jato', 'mensalao', 'denuncia', 'operacao policial', 'investigacao',
-
-    # Mídia, redes sociais e desinformação
-    'fake news', 'desinformacao', 'checagem', 'fact-check', 'whatsapp', 'telegram',
-    'facebook', 'instagram', 'youtube', 'redes sociais', 'midia', 'portais',
-
-    # Institutos e pesquisas
-    'datafolha', 'ibope', 'pesquisa eleitoral', 'instituto de pesquisa',
-
-    # Governos e cargos
-    'presidente', 'presidencia', 'governador', 'prefeito', 'deputado', 'senador',
-
-    # Termos gerais usados em checagens
-    'afirmacao', 'veracidade', 'veredito', 'falso', 'verdadeiro', 'enganoso',
-
-    # Assuntos recorrentes na política brasileira
-    'corrupcao politica', 'impeachment', 'auxilio', 'beneficio', 'inflacao', 'desemprego',
-    'saude publica', 'vacina', 'covid', 'educacao', 'seguranca publica', 'impostos',
+    # Lista enxuta (≤50) focada em política brasileira — 'corrupcao' mantida
+    'corrupcao', 'lula', 'luiz inacio lula da silva', 'jair bolsonaro', 'bolsonaro',
+    'ciro gomes', 'sergio moro', 'haddad', 'marina silva', 'joao doria',
+    'aecio neves', 'pt', 'psdb', 'pl', 'psol', 'psb', 'rede', 'pmdb',
+    'campanha', 'eleicao', 'eleicoes', 'voto', 'urna', 'urna eletronica',
+    'fraude', 'tse', 'stf', 'congresso', 'senado', 'camara dos deputados',
+    'presidente', 'governador', 'prefeito', 'impeachment', 'auxilio emergencial',
+    'bolsa familia', 'lava jato', 'fake news', 'desinformacao', 'pesquisa eleitoral',
+    'datafolha', 'ibope', 'pec', 'reforma da previdencia', 'educacao',
+    'saude publica', 'vacina', 'impostos', 'seguranca publica', 'investigacao'
 ]
 
 FACTCHECK_URL = 'https://factchecktools.googleapis.com/v1alpha1/claims:search'

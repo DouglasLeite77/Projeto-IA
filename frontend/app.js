@@ -3,7 +3,6 @@ const resultSection = document.getElementById("result");
 const errorBox = document.getElementById("error");
 const resultUrlRow = document.getElementById("result-url-row");
 const resultUrlLink = document.getElementById("result-url");
-const resultGNewsScore = document.getElementById("result-gnews-score");
 const analyzeButton = document.getElementById("analyze-button");
 
 const setResult = (data) => {
@@ -36,7 +35,6 @@ const clearResult = () => {
   document.getElementById("result-source").textContent = "";
   document.getElementById("result-verdict").textContent = "";
   document.getElementById("result-probability").textContent = "";
-  document.getElementById("result-gnews-score").textContent = "";
   document.getElementById("result-detail").textContent = "";
   resultUrlRow.hidden = true;
   resultUrlLink.href = "#";
