@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 from .dataset import DatasetManager
+from .gnews import GNewsManager
 from .model import FactModel
 
 BASE_DIR = os.path.dirname(__file__)
@@ -13,6 +14,19 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
 DATA_PATH = os.path.join(BASE_DIR, "data", "initial_dataset.csv")
 MODEL_PATH = os.path.join(BASE_DIR, "model", "model.joblib")
+
+
+def normalize_verdict(value: str) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return "FALSO"
+    false_tokens = ["false", "falso", "nao", "não", "errado", "mentira", "mito", "conjectura", "inconclusivo", "questionable", "not true", "mostly false"]
+    true_tokens = ["true", "verdade", "verdadeiro", "verificado", "correto", "confirmado"]
+    if any(tok in text for tok in false_tokens):
+        return "FALSO"
+    if any(tok in text for tok in true_tokens):
+        return "VERDADEIRO"
+    return "FALSO"
 
 app = FastAPI(title="Verificador de Fatos")
 app.add_middleware(
@@ -32,6 +46,7 @@ class ClaimResponse(BaseModel):
     probability: float
     detail: str
     url: Optional[str] = None
+    gnews_score: Optional[float] = None
 
 dataset = DatasetManager(DATA_PATH)
 model = None
@@ -42,6 +57,35 @@ except FileNotFoundError:
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 FACTCHECK_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+GNEWS_CSV_PATH = os.path.join(BASE_DIR, "data", "gnews_articles.csv")
+
+gnews_manager = GNewsManager(GNEWS_CSV_PATH)
+
+
+def extract_factcheck_rating(claim_item: dict) -> str:
+    if not isinstance(claim_item, dict):
+        return ""
+
+    textual = claim_item.get("textualRating")
+    if isinstance(textual, dict):
+        rating = textual.get("rating", "")
+        if isinstance(rating, str) and rating.strip():
+            return rating
+    elif isinstance(textual, str) and textual.strip():
+        return textual
+
+    claim_review = claim_item.get("claimReview", [])
+    if claim_review and isinstance(claim_review, list):
+        first = claim_review[0]
+        if isinstance(first, dict):
+            review_textual = first.get("textualRating")
+            if isinstance(review_textual, dict):
+                rating = review_textual.get("rating", "")
+                if isinstance(rating, str) and rating.strip():
+                    return rating
+            elif isinstance(review_textual, str) and review_textual.strip():
+                return review_textual
+    return ""
 
 @app.get("/health")
 async def health():
@@ -58,11 +102,13 @@ async def analyze(request: ClaimRequest):
         return ClaimResponse(
             claim=existing["claim"],
             source=existing.get("source", "Fonte local"),
-            verdict=existing.get("label", "VERIFICADO").upper(),
+            verdict=normalize_verdict(existing.get("label", "FALSO")),
             probability=1.0,
             detail=existing.get("notes", "Resultado obtido do dataset local"),
             url=existing.get("url", "")
         )
+
+    gnews_article = gnews_manager.search_claim(claim_text)
 
     factcheck_data = None
     if GOOGLE_API_KEY:
@@ -78,17 +124,20 @@ async def analyze(request: ClaimRequest):
             if claims:
                 claim_item = claims[0]
                 claim_review = claim_item.get("claimReview", [{}])[0]
-                verdict = claim_item.get("textualRating", {}).get("rating", "VERIFICADO")
+                verdict = extract_factcheck_rating(claim_item)
+                if not verdict:
+                    verdict = claim_review.get("title", "")
                 source = claim_review.get("publisher", {}).get("name", "Google Fact Check")
                 detail = claim_review.get("title", "")
                 url = claim_review.get("url", "")
+                normalized_verdict = normalize_verdict(verdict)
                 factcheck_data = {
                     "claim": claim_text,
-                    "label": verdict.upper(),
+                    "label": normalized_verdict,
                     "source": source,
                     "date": claim_review.get("publishDate", ""),
                     "notes": detail,
-                    "verdict": verdict.upper(),
+                    "verdict": normalized_verdict,
                     "detail": detail,
                     "url": url,
                 }
@@ -101,36 +150,45 @@ async def analyze(request: ClaimRequest):
             "date": factcheck_data["date"],
             "notes": factcheck_data["detail"],
         })
+        source = factcheck_data["source"]
+        detail = factcheck_data["detail"] or "Verificação encontrada na API de fact-check"
+        url = factcheck_data.get("url", "")
+        gnews_score = None
+        if gnews_article:
+            source = f"{source} + GNews ({gnews_article.get('source', 'GNews')})"
+            detail = f"{detail} | Artigo GNews relacionado: {gnews_article.get('title', '').strip()}"
+            if not url:
+                url = gnews_article.get('url', "")
+            gnews_score = gnews_article.get('gnews_score')
         return ClaimResponse(
             claim=claim_text,
-            source=factcheck_data["source"],
+            source=source,
             verdict=factcheck_data["verdict"],
             probability=1.0,
-            detail=factcheck_data["detail"] or "Verificação encontrada na API de fact-check",
-            url=factcheck_data.get("url", "")
+            detail=detail,
+            url=url,
+            gnews_score=gnews_score,
         )
 
-    if model is None:
-        raise HTTPException(status_code=503, detail="Modelo de ML não carregado. Execute o treinamento primeiro.")
-
-    verdict = model.predict(claim_text)
-    probability = model.predict_proba(claim_text)
-    record = {
-        "claim": claim_text,
-        "label": verdict,
-        "source": "ML Model",
-        "date": "",
-        "notes": "Estimativa do modelo",
-        "url": ""
-    }
-    dataset.append_record(record)
+    if gnews_article:
+        source = f"Modelo de Machine Learning / GNews ({gnews_article.get('source', 'GNews')})"
+        detail = f"Artigo GNews relacionado: {gnews_article.get('title', '').strip()}"
+        url = gnews_article.get('url', "")
+        gnews_score = gnews_article.get('gnews_score')
+    else:
+        source = "Modelo de Machine Learning"
+        detail = "Resultado estimado pelo modelo de ML"
+        url = ""
+        gnews_score = None
 
     return ClaimResponse(
         claim=claim_text,
-        source="Modelo de Machine Learning",
+        source=source,
         verdict=verdict,
         probability=round(probability, 3),
-        detail="Resultado estimado pelo modelo de ML"
+        detail=detail,
+        url=url,
+        gnews_score=gnews_score,
     )
 
 # Training control/state

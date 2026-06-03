@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from joblib import load
 from sklearn.pipeline import Pipeline
 
@@ -9,15 +10,27 @@ class FactModel:
         self.pipeline: Pipeline = load(model_path)
 
     def predict(self, claim: str) -> str:
-        prediction = self.pipeline.predict([claim])[0]
-        if prediction == "true":
-            return "VERDADEIRO"
-        if prediction == "false":
+        prediction = str(self.pipeline.predict([claim])[0]).strip().lower()
+        if prediction == "false" or prediction == "falso":
             return "FALSO"
-        return "INCONCLUSIVO"
+        return "VERDADEIRO"
 
     def predict_proba(self, claim: str) -> float:
-        if hasattr(self.pipeline, "predict_proba"):
-            proba = self.pipeline.predict_proba([claim])[0]
-            return max(proba)
-        return 0.0
+        if not hasattr(self.pipeline, "predict_proba"):
+            return 0.0
+
+        proba = self.pipeline.predict_proba([claim])[0]
+        prediction = str(self.pipeline.predict([claim])[0]).strip().lower()
+        classes = [str(c).strip().lower() for c in self.pipeline.classes_]
+
+        if prediction in classes:
+            index = classes.index(prediction)
+            return float(np.asarray(proba)[index])
+
+        return float(np.max(np.asarray(proba)))
+
+    def normalize_prediction(self, prediction: str) -> str:
+        text = str(prediction or "").strip().lower()
+        if "false" in text or "falso" in text:
+            return "FALSO"
+        return "VERDADEIRO"

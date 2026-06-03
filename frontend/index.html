@@ -2,26 +2,29 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Verificador de Fatos</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2" />
 </head>
 <body>
     <main class="container">
         <h1>Verificador de Fatos</h1>
         <p>Envie uma afirmação e veja se já existe verificação ou se o modelo estima a veracidade.</p>
 
-        <form id="claim-form">
+        <div id="claim-form">
             <label for="claim">Afirmação</label>
             <textarea id="claim" rows="5" placeholder="Digite a afirmação aqui..."></textarea>
-            <button id="analyze-button" type="submit">Analisar</button>
-        </form>
+            <button id="analyze-button" type="button">Analisar</button>
+        </div>
 
         <section id="result" class="hidden">
             <h2>Resultado</h2>
             <p><strong>Afirmação:</strong> <span id="result-claim"></span></p>
             <p><strong>Fonte:</strong> <span id="result-source"></span></p>
-            <p><strong>Veredicto:</strong> <span id="result-verdict"></span></p>
+            <p><strong>Veredito:</strong> <span id="result-verdict"></span></p>
             <p><strong>Confiança:</strong> <span id="result-probability"></span></p>
             <p><strong>Detalhe:</strong> <span id="result-detail"></span></p>
             <p id="result-url-row" class="hidden"><strong>Notícia:</strong> <a id="result-url" href="#" target="_blank" rel="noopener noreferrer"></a></p>
@@ -29,6 +32,6 @@
 
         <div id="error" class="error hidden"></div>
     </main>
-<script src="app.js?v=3" defer></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

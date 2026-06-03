@@ -1,9 +1,10 @@
-const form = document.getElementById("claim-form");
 const claimField = document.getElementById("claim");
 const resultSection = document.getElementById("result");
 const errorBox = document.getElementById("error");
 const resultUrlRow = document.getElementById("result-url-row");
 const resultUrlLink = document.getElementById("result-url");
+const resultGNewsScore = document.getElementById("result-gnews-score");
+const analyzeButton = document.getElementById("analyze-button");
 
 const setResult = (data) => {
   document.getElementById("result-claim").textContent = data.claim;
@@ -22,7 +23,6 @@ const setResult = (data) => {
   }
   errorBox.textContent = "";
   resultSection.classList.remove("hidden");
-  // keep the input text so user can refine or retry quickly
   try { claimField.value = data.claim || claimField.value; } catch (e) {}
 };
 
@@ -31,11 +31,29 @@ const setError = (message) => {
   errorBox.classList.remove("hidden");
 };
 
-const analyzeButton = document.getElementById("analyze-button");
+const clearResult = () => {
+  document.getElementById("result-claim").textContent = "";
+  document.getElementById("result-source").textContent = "";
+  document.getElementById("result-verdict").textContent = "";
+  document.getElementById("result-probability").textContent = "";
+  document.getElementById("result-gnews-score").textContent = "";
+  document.getElementById("result-detail").textContent = "";
+  resultUrlRow.hidden = true;
+  resultUrlLink.href = "#";
+  resultUrlLink.textContent = "";
+  resultSection.classList.add("hidden");
+};
 
-const sendClaim = async () => {
+const preventFormSubmission = (event) => {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+};
+
+async function sendClaim() {
   errorBox.classList.add("hidden");
-
+  clearResult();
   const claim = claimField.value.trim();
   if (!claim) {
     setError("Digite uma afirmação para analisar.");
@@ -51,9 +69,9 @@ const sendClaim = async () => {
       method: "POST",
       mode: "cors",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ claim }),
+      body: JSON.stringify({ claim })
     });
 
     let data;
@@ -78,10 +96,23 @@ const sendClaim = async () => {
     analyzeButton.disabled = false;
     analyzeButton.textContent = "Analisar";
   }
-};
+}
 
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  sendClaim();
+console.log("frontend app.js loaded");
+
+document.addEventListener("submit", preventFormSubmission, true);
+
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  if (target && target.id === "analyze-button") {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log("analyze button clicked");
+    sendClaim();
+  }
 });
+
+if (analyzeButton) {
+  analyzeButton.type = "button";
+}
 
