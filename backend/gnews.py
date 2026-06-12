@@ -60,12 +60,12 @@ class GNewsManager:
 
             article_tokens = set(combined_text.split())
             overlap = len(claim_tokens & article_tokens)
-            if overlap < 2:
+            if overlap < 3:
                 continue
 
             claim_ratio = overlap / len(claim_tokens)
             article_ratio = overlap / max(len(article_tokens), 1)
-            score = claim_ratio * 0.7 + article_ratio * 0.3
+            score = claim_ratio * 0.6 + article_ratio * 0.2
 
             if title_text:
                 title_overlap = len(claim_tokens & set(title_text.split()))
@@ -75,7 +75,7 @@ class GNewsManager:
                 best_score = score
                 best_article = article
 
-        if best_article and best_score >= 0.35:
+        if best_article and best_score >= 0.60:
             best_article["gnews_score"] = round(best_score, 3)
             return best_article
 

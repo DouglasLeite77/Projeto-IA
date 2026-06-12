@@ -1,3 +1,4 @@
+import difflib
 import os
 from typing import Optional
 from dotenv import load_dotenv
@@ -8,6 +9,7 @@ import requests
 from .dataset import DatasetManager
 from .gnews import GNewsManager
 from .model import FactModel
+from .text_preprocessing import load_pt_stopwords, TextPreprocessor, normalize_text
 
 BASE_DIR = os.path.dirname(__file__)
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -106,6 +108,59 @@ def extract_factcheck_detail(claim_item: dict) -> str:
     return title or claim_text or ""
 
 
+def extract_factcheck_claim_text(claim_item: dict) -> str:
+    if not isinstance(claim_item, dict):
+        return ""
+
+    claim_text = claim_item.get("text") or claim_item.get("claim") or ""
+    if not claim_text:
+        claim_review = claim_item.get("claimReview", [])
+        if claim_review and isinstance(claim_review, list):
+            first = claim_review[0]
+            if isinstance(first, dict):
+                claim_text = first.get("title", "") or ""
+    return str(claim_text)
+
+
+def calculate_text_similarity(text1: str, text2: str) -> float:
+    normalized_a = normalize_text(text1 or "")
+    normalized_b = normalize_text(text2 or "")
+    if not normalized_a or not normalized_b:
+        return 0.0
+    return difflib.SequenceMatcher(None, normalized_a, normalized_b).ratio()
+
+
+def build_probability_from_similarity(similarity: float, minimum: float = 0.5) -> float:
+    if similarity >= 0.99:
+        return 1.0
+    if similarity <= 0.0:
+        return 0.0
+    return round(max(minimum, min(similarity, 0.99)), 3)
+
+
+def normalize_probability(probability: float) -> float:
+    if probability <= 0.0:
+        return 0.0
+    if probability >= 1.0:
+        return 0.99
+    return round(probability, 3)
+
+
+def get_factcheck_probability(claim_text: str, claim_item: dict) -> float:
+    match_text = extract_factcheck_claim_text(claim_item)
+    if not match_text:
+        return 0.0
+    similarity = calculate_text_similarity(claim_text, match_text)
+    return build_probability_from_similarity(similarity, minimum=0.5)
+
+
+def factcheck_match_score(claim_text: str, claim_item: dict) -> float:
+    match_text = extract_factcheck_claim_text(claim_item)
+    if not match_text:
+        return 0.0
+    return calculate_text_similarity(claim_text, match_text)
+
+
 def expand_detail_text(detail: str, claim_text: str) -> str:
     if not detail:
         return claim_text or ""
@@ -131,14 +186,15 @@ async def analyze(request: ClaimRequest):
         # Exibir a claim original em `claim` e incluir a claim encontrada no dataset em `detail`.
         matched_claim = existing.get("claim", "")
         detail_text = expand_detail_text(existing.get("notes", "Resultado obtido do dataset local"), matched_claim)
-        # prefixar informação sobre correspondência local
-        # Não prefixar; usar apenas o texto de detalhe já construído
-        detail_text = detail_text
+        match_score = existing.get("_match_score", 1.0)
+        probability = round(match_score, 3)
+        if probability < 0.5:
+            probability = 0.5
         return ClaimResponse(
             claim=claim_text,
             source=existing.get("source", "Fonte local"),
             verdict=normalize_verdict(existing.get("label", "FALSO")),
-            probability=1.0,
+            probability=probability,
             detail=detail_text,
             url=existing.get("url", "")
         )
@@ -159,23 +215,27 @@ async def analyze(request: ClaimRequest):
             if claims:
                 claim_item = claims[0]
                 claim_review = claim_item.get("claimReview", [{}])[0]
-                verdict = extract_factcheck_rating(claim_item)
-                if not verdict:
-                    verdict = claim_review.get("title", "")
-                source = claim_review.get("publisher", {}).get("name", "Google Fact Check")
-                detail = extract_factcheck_detail(claim_item) or claim_review.get("textualRating", "")
-                url = claim_review.get("url", "")
-                normalized_verdict = normalize_verdict(verdict)
-                factcheck_data = {
-                    "claim": claim_text,
-                    "label": normalized_verdict,
-                    "source": source,
-                    "date": claim_review.get("publishDate", ""),
-                    "notes": detail,
-                    "verdict": normalized_verdict,
-                    "detail": detail,
-                    "url": url,
-                }
+                match_score = factcheck_match_score(claim_text, claim_item)
+                if match_score >= 0.50:
+                    verdict = extract_factcheck_rating(claim_item)
+                    if not verdict:
+                        verdict = claim_review.get("title", "")
+                    source = claim_review.get("publisher", {}).get("name", "Google Fact Check")
+                    detail = extract_factcheck_detail(claim_item) or claim_review.get("textualRating", "")
+                    url = claim_review.get("url", "")
+                    normalized_verdict = normalize_verdict(verdict)
+                    factcheck_data = {
+                        "claim": claim_text,
+                        "label": normalized_verdict,
+                        "source": source,
+                        "date": claim_review.get("publishDate", ""),
+                        "notes": detail,
+                        "verdict": normalized_verdict,
+                        "detail": detail,
+                        "url": url,
+                        "probability": build_probability_from_similarity(match_score, minimum=0.5),
+                        "match_score": round(match_score, 3),
+                    }
 
     if factcheck_data:
         dataset.append_record({
@@ -195,32 +255,37 @@ async def analyze(request: ClaimRequest):
             if not url:
                 url = gnews_article.get('url', "")
             gnews_score = gnews_article.get('gnews_score')
+        probability = round(factcheck_data.get("probability", 0.0), 3)
         return ClaimResponse(
             claim=claim_text,
             source=source,
             verdict=factcheck_data["verdict"],
-            probability=1.0,
+            probability=probability,
             detail=detail,
             url=url,
             gnews_score=gnews_score,
         )
 
     if gnews_article:
-        if model:
-            verdict = model.predict(claim_text)
-            probability = model.predict_proba(claim_text)
-            source = f"Modelo de Machine Learning / GNews ({gnews_article.get('source', 'GNews')})"
-        else:
-            verdict = "VERDADEIRO"
-            probability = 0.0
-            source = f"GNews ({gnews_article.get('source', 'GNews')})"
-        detail = f"Artigo GNews relacionado: {gnews_article.get('title', '').strip()}"
         url = gnews_article.get('url', "")
         gnews_score = gnews_article.get('gnews_score')
+        if model:
+            verdict = model.predict(claim_text)
+            probability = normalize_probability(model.predict_proba(claim_text))
+            source = f"Modelo de Machine Learning (artigo relacionado: GNews {gnews_article.get('source', 'GNews')})"
+            detail = (
+                f"Artigo GNews relacionado: {gnews_article.get('title', '').strip()}. "
+                "O veredito foi gerado pelo modelo de ML; o artigo é apenas uma fonte relacionada, não uma verificação direta da afirmação."
+            )
+        else:
+            verdict = "INCONCLUSIVO"
+            probability = 0.0
+            source = f"GNews relacionado ({gnews_article.get('source', 'GNews')})"
+            detail = f"Artigo GNews relacionado: {gnews_article.get('title', '').strip()}. Não há verificação direta da afirmação baseada neste artigo."
     else:
         if model:
             verdict = model.predict(claim_text)
-            probability = model.predict_proba(claim_text)
+            probability = normalize_probability(model.predict_proba(claim_text))
         else:
             verdict = "FALSO"
             probability = 0.0

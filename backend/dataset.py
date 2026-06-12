@@ -79,15 +79,14 @@ class DatasetManager:
 
     def find_claim(self, claim: str) -> Optional[Dict[str, str]]:
         text = self._normalize_text(claim)
-        # exact normalized match
         if not text:
             return None
 
-        # exact normalized match
         if text in getattr(self, 'normalized_map', {}):
-            return self.normalized_map[text][0]
+            row = dict(self.normalized_map[text][0])
+            row["_match_score"] = 1.0
+            return row
 
-        # fallback: fuzzy match against normalized claims
         best_row = None
         best_score = 0.0
         for key, rows in getattr(self, 'normalized_map', {}).items():
@@ -96,9 +95,10 @@ class DatasetManager:
                 best_score = score
                 best_row = rows[0]
 
-        # threshold for accepting fuzzy match
-        if best_score >= 0.80:
-            return best_row
+        if best_score >= 0.80 and best_row is not None:
+            row = dict(best_row)
+            row["_match_score"] = round(best_score, 3)
+            return row
 
         return None
 
